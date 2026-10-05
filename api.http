@@ -1,0 +1,64 @@
+### Sample requests (IntelliJ HTTP Client / VS Code REST Client)
+@baseUrl = http://localhost:8080
+
+### Login as the bootstrap admin -> copy accessToken into @adminToken
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{"email": "admin@tickets.local", "password": "Admin@12345"}
+
+###
+@adminToken = paste-admin-token-here
+
+### Admin: create an event
+POST {{baseUrl}}/api/events
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Rock Night",
+  "description": "Live bands all night",
+  "venue": "City Arena",
+  "startsAt": "2030-06-01T19:00:00Z",
+  "price": 25.00,
+  "totalSeats": 100
+}
+
+### Admin: cancel an event
+POST {{baseUrl}}/api/events/1/cancel
+Authorization: Bearer {{adminToken}}
+
+### Public: list events
+GET {{baseUrl}}/api/events
+
+### Register a customer -> copy accessToken into @token
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{"email": "alice@example.com", "password": "Password123", "fullName": "Alice"}
+
+###
+@token = paste-customer-token-here
+
+### Who am I
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### Book tickets (any client-side price is ignored)
+POST {{baseUrl}}/api/bookings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"eventId": 1, "quantity": 2}
+
+### My bookings
+GET {{baseUrl}}/api/bookings
+Authorization: Bearer {{token}}
+
+### One booking
+GET {{baseUrl}}/api/bookings/1
+Authorization: Bearer {{token}}
+
+### Cancel a booking
+POST {{baseUrl}}/api/bookings/1/cancel
+Authorization: Bearer {{token}}

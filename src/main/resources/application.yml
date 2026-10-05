@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: event-tickets
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/event_tickets}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  jwt:
+    # HMAC-SHA256 key, must be at least 32 bytes. Always override in production via JWT_SECRET.
+    secret: ${JWT_SECRET:dev-only-secret-change-me-please-0123456789abcdef}
+    expiration: ${JWT_EXPIRATION:1h}
+    issuer: event-tickets
+  admin:
+    # Bootstrap admin account created on startup if it does not exist.
+    email: ${ADMIN_EMAIL:admin@tickets.local}
+    password: ${ADMIN_PASSWORD:Admin@12345}
+    full-name: System Admin
