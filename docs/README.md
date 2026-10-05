@@ -4,6 +4,7 @@ A REST API for browsing events and booking tickets. Customers register, log in w
 
 | Document | What it covers |
 |---|---|
+| [Requirements](requirements.md) | Scope, roles, numbered functional & non-functional requirements, assumptions |
 | [Architecture](architecture.md) | Tech stack, layers, package layout, request flow |
 | [Business rules](business-rules.md) | The six booking rules and exactly how each is enforced |
 | [API reference](api.md) | Every endpoint with request/response examples and error codes |
