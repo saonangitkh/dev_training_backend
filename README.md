@@ -2,7 +2,7 @@
 
 Spring Boot 4.1 · Java 25 · PostgreSQL · Flyway · Spring Security (JWT)
 
-📚 Full documentation is in [`docs/`](docs/README.md): [requirements](docs/requirements.md) · [architecture](docs/architecture.md) · [business rules](docs/business-rules.md) · [API](docs/api.md) · [database](docs/database.md) · [security](docs/security.md) · [development](docs/development.md) · [testing with curl](docs/testing-with-curl.md)
+📚 Full documentation is in [`docs/`](docs/README.md): [requirements](docs/requirements.md) · [architecture](docs/architecture.md) · [business rules](docs/business-rules.md) · [API](docs/api.md) · [database](docs/database.md) · [security](docs/security.md) · [development](docs/development.md) · [testing with PowerShell](docs/testing-with-powershell.md) · [testing with Postman](docs/testing-with-postman.md)
 
 ## Business rules
 

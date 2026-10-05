@@ -131,7 +131,8 @@ The project is accepted when:
 - [x] Each BR-01…BR-06 returns the status code required by the brief.
 - [x] `./mvnw test` passes: 8 unit tests.
 - [x] `./mvnw verify` passes against PostgreSQL: 3 integration tests, including the concurrency test.
-- [x] The manual walkthrough in [testing-with-curl.md](testing-with-curl.md) gives the expected results.
+- [x] The manual walkthrough in [testing-with-powershell.md](testing-with-powershell.md) gives the expected results.
+- [x] The manual Postman test plan in [testing-with-postman.md](testing-with-postman.md) gives the expected results.
 - [x] The documentation in `docs/` describes how to run, use and extend the system.
 
 ## 7. Traceability

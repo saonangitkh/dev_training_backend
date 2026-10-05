@@ -11,7 +11,8 @@ A REST API for browsing events and booking tickets. Customers register, log in w
 | [Database](database.md) | Schema, constraints, migrations, locking strategy |
 | [Security](security.md) | Authentication, JWT format, roles, authorization rules |
 | [Development guide](development.md) | Local setup, configuration, testing, coding conventions |
-| [Testing with curl](testing-with-curl.md) | Step-by-step manual test of every rule from the terminal |
+| [Testing with PowerShell](testing-with-powershell.md) | Step-by-step manual test of every rule from PowerShell |
+| [Testing with Postman](testing-with-postman.md) | Endpoints, payloads and a step-by-step manual test plan |
 
 ## At a glance
 

@@ -59,23 +59,23 @@ export DB_PASSWORD=your-password
 
 ## 3. Run
 
-```bash
-./mvnw spring-boot:run
+```powershell
+.\mvnw.cmd spring-boot:run          # macOS/Linux/Git Bash: ./mvnw spring-boot:run
 ```
 
 Check that it's up:
 
-```bash
-curl http://localhost:8080/actuator/health      # {"status":"UP"}
+```powershell
+Invoke-RestMethod http://localhost:8080/actuator/health      # status: UP
 ```
 
-Then try the requests in [`api.http`](../api.http). Log in as the admin first, create an event, then register a customer and book tickets.
+Then follow [testing-with-powershell.md](testing-with-powershell.md) or [testing-with-postman.md](testing-with-postman.md), or try the requests in [`api.http`](../api.http).
 
 Build a runnable jar:
 
-```bash
-./mvnw clean package
-java -jar target/event-tickets-0.0.1-SNAPSHOT.jar
+```powershell
+.\mvnw.cmd clean package
+java -jar target\event-tickets-0.0.1-SNAPSHOT.jar
 ```
 
 ## 4. Tests
