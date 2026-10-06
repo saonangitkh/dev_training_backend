@@ -16,7 +16,7 @@
 docker compose up -d
 ```
 
-This starts PostgreSQL 18 on port 5432 (user/password `postgres`/`postgres`) and creates the `event_tickets` and `event_tickets_test` databases.
+This starts PostgreSQL 18 on port 5434 (user/password `postgres`/`postgres`) and creates the `event_tickets` and `event_tickets_test` databases.
 
 **Option B: local PostgreSQL**
 
@@ -33,15 +33,15 @@ All settings are in `src/main/resources/application.yml` and can be overridden w
 
 | Env var | Property | Default |
 |---|---|---|
-| `DB_URL` | `spring.datasource.url` | `jdbc:postgresql://localhost:5432/event_tickets` |
+| `DB_URL` | `spring.datasource.url` | `jdbc:postgresql://localhost:5434/event_tickets` |
 | `DB_USERNAME` | `spring.datasource.username` | `postgres` |
 | `DB_PASSWORD` | `spring.datasource.password` | `postgres` |
 | `JWT_SECRET` | `app.jwt.secret` | dev-only value (must be ≥ 32 chars) |
 | `JWT_EXPIRATION` | `app.jwt.expiration` | `1h` (any Spring duration: `30m`, `2h`, ...) |
 | `ADMIN_EMAIL` | `app.admin.email` | `admin@tickets.local` |
 | `ADMIN_PASSWORD` | `app.admin.password` | `Admin@12345` |
-| `PORT` | `server.port` | `8080` |
-| `TEST_DB_URL` | test profile datasource | `jdbc:postgresql://localhost:5432/event_tickets_test` |
+| `PORT` | `server.port` | `8090` |
+| `TEST_DB_URL` | test profile datasource | `jdbc:postgresql://localhost:5434/event_tickets_test` |
 
 The `app.*` properties are validated at startup (`JwtProperties`, `AdminProperties`). For example, the app refuses to start if the JWT secret is too short.
 
@@ -66,10 +66,10 @@ export DB_PASSWORD=your-password
 Check that it's up:
 
 ```powershell
-Invoke-RestMethod http://localhost:8080/actuator/health      # status: UP
+Invoke-RestMethod http://localhost:8090/actuator/health      # status: UP
 ```
 
-Then follow [testing-with-powershell.md](testing-with-powershell.md) or [testing-with-postman.md](testing-with-postman.md), or try the requests in [`api.http`](../api.http).
+Then follow [testing-with-powershell.md](testing-with-powershell.md), [testing-with-curl.md](testing-with-curl.md) (macOS / Linux) or [testing-with-postman.md](testing-with-postman.md), or try the requests in [`api.http`](../api.http).
 
 Build a runnable jar:
 

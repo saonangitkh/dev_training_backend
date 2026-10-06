@@ -2,7 +2,7 @@
 
 Spring Boot 4.1 · Java 25 · PostgreSQL · Flyway · Spring Security (JWT)
 
-📚 Full documentation is in [`docs/`](docs/README.md): [requirements](docs/requirements.md) · [architecture](docs/architecture.md) · [business rules](docs/business-rules.md) · [API](docs/api.md) · [database](docs/database.md) · [security](docs/security.md) · [development](docs/development.md) · [testing with PowerShell](docs/testing-with-powershell.md) · [testing with Postman](docs/testing-with-postman.md)
+📚 Full documentation is in [`docs/`](docs/README.md): [requirements](docs/requirements.md) · [architecture](docs/architecture.md) · [business rules](docs/business-rules.md) · [API](docs/api.md) · [database](docs/database.md) · [security](docs/security.md) · [development](docs/development.md) · [testing with PowerShell](docs/testing-with-powershell.md) · [testing with curl](docs/testing-with-curl.md) · [testing with Postman](docs/testing-with-postman.md)
 
 ## Business rules
 
@@ -35,6 +35,20 @@ src/main/resources
 
 Each feature package follows **Controller → Service → Repository → Entity**. Controllers use DTO records only and never return entities. Business rules live in the entities and services.
 
+## Running with Docker only (no JDK needed)
+
+```sh
+docker compose up -d --build     # builds the jar with JDK 25 in Docker, starts PostgreSQL + API on :8090
+docker compose logs -f app       # follow API logs
+```
+
+Run the tests in a JDK 25 container (PostgreSQL must be up):
+
+```sh
+docker run --rm --network dev_training_backend_default -v "$PWD":/workspace -v m2:/root/.m2 -w /workspace \
+  -e TEST_DB_URL=jdbc:postgresql://postgres:5432/event_tickets_test eclipse-temurin:25-jdk sh ./mvnw -B verify
+```
+
 ## Running locally
 
 1. Start PostgreSQL. Either:
@@ -53,11 +67,11 @@ On startup, Flyway creates the tables and an admin account is created: `admin@ti
 
 | Env var | Default |
 |---|---|
-| `DB_URL` | `jdbc:postgresql://localhost:5432/event_tickets` |
+| `DB_URL` | `jdbc:postgresql://localhost:5434/event_tickets` |
 | `DB_USERNAME` / `DB_PASSWORD` | `postgres` / `postgres` |
 | `JWT_SECRET` | dev-only value. **Set a random secret of 32+ characters in production** |
 | `JWT_EXPIRATION` | `1h` |
-| `PORT` | `8080` |
+| `PORT` | `8090` |
 
 ## API
 

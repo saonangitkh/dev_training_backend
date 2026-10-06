@@ -2,7 +2,7 @@ spring:
   application:
     name: event-tickets
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/event_tickets}
+    url: ${DB_URL:jdbc:postgresql://localhost:5434/event_tickets}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
   jpa:
@@ -18,7 +18,7 @@ spring:
     locations: classpath:db/migration
 
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8090}
 
 management:
   endpoints:

@@ -1,6 +1,6 @@
 # API reference
 
-Base URL (local): `http://localhost:8080`. All bodies are JSON. Timestamps are ISO-8601 UTC (for example `2030-06-01T19:00:00Z`). Money values are decimal numbers with 2 decimal places.
+Base URL (local): `http://localhost:8090`. All bodies are JSON. Timestamps are ISO-8601 UTC (for example `2030-06-01T19:00:00Z`). Money values are decimal numbers with 2 decimal places.
 
 Authenticated endpoints need this header:
 

@@ -1,223 +1,225 @@
 # Testing with PowerShell
 
-A step-by-step manual test of every business rule from **PowerShell**. Works in Windows PowerShell 5.1 and PowerShell 7+.
+A manual test plan for the six business rules. Run the steps in order, all in the **same PowerShell window**.
 
-> Run each block in the **same PowerShell window**. Variables such as `$API` and `$ALICE` exist only in that window, so if you open a new one, start again from step 1.
+## Setup
 
-## 0. Start the app
-
-In a separate PowerShell window (see [development.md](development.md) for details):
-
-```powershell
-cd C:\nn\dev_training_backend
-.\mvnw.cmd spring-boot:run
-```
-
-Wait until you see `Started EventTicketsApplication`. Then use a second PowerShell window for everything below.
-
-## 1. Setup
-
-Paste this whole block once. It stores the API address and defines a helper function, `Invoke-Api`, that:
-- sends JSON and adds the `Authorization` header when you pass `-Token`,
-- prints the **HTTP status code** for every call, in green for success and yellow for errors,
-- returns the response body as an object, **including for errors** (plain `Invoke-RestMethod` throws instead).
+1. Start the app: `docker compose up -d --build` (no JDK needed), or `.\mvnw.cmd spring-boot:run` if you have JDK 25 installed
+2. Open **PowerShell 7** (`pwsh`). Windows PowerShell 5.1 doesn't support `-SkipHttpErrorCheck`; install 7 with `winget install Microsoft.PowerShell`.
+3. Paste this once. `api` prints the HTTP status and returns the response body, including for errors:
 
 ```powershell
-$API = "http://localhost:8080"
+$API = "http://localhost:8090"
 
-function Invoke-Api {
-    param(
-        [string]$Method = "GET",
-        [Parameter(Mandatory)][string]$Path,
-        [object]$Body,
-        [string]$Token
-    )
-    $request = @{ Method = $Method; Uri = "$API$Path"; Headers = @{}; UseBasicParsing = $true }
-    if ($Token) { $request.Headers.Authorization = "Bearer $Token" }
-    if ($null -ne $Body) {
-        $request.ContentType = "application/json"
-        $request.Body = $Body | ConvertTo-Json -Compress
-    }
-    try {
-        $response = Invoke-WebRequest @request
-        $status = [int]$response.StatusCode
-        $content = $response.Content
-    }
-    catch {
-        if (-not $_.Exception.Response) { throw }   # server not reachable
-        $status = [int]$_.Exception.Response.StatusCode
-        $content = $_.ErrorDetails.Message
-        if (-not $content -and $_.Exception.Response -is [System.Net.WebResponse]) {
-            # Windows PowerShell 5.1: read the error body from the response stream
-            $stream = $_.Exception.Response.GetResponseStream()
-            $stream.Position = 0
-            $content = (New-Object System.IO.StreamReader($stream)).ReadToEnd()
-        }
-    }
-    if ($content -is [byte[]]) { $content = [System.Text.Encoding]::UTF8.GetString($content) }
-    $color = if ($status -lt 400) { "Green" } else { "Yellow" }
-    Write-Host "HTTP $status" -ForegroundColor $color
-    if ($content) { $content | ConvertFrom-Json }
+function api {
+    param([string]$Method, [string]$Path, [object]$Body, [string]$Token)
+    $headers = @{}
+    if ($Token) { $headers.Authorization = "Bearer $Token" }
+    $json = if ($null -ne $Body) { $Body | ConvertTo-Json }
+    $response = Invoke-RestMethod -Method $Method -Uri "$API$Path" -Headers $headers -Body $json `
+        -ContentType "application/json" -SkipHttpErrorCheck -StatusCodeVariable status
+    Write-Host "HTTP $status"
+    $response
 }
 ```
 
-Check that the app is up:
+The variables `$ADMIN`, `$DARA`, `$SOKHA`, `$EVENT` and `$BOOKING` are set by the steps below.
+
+---
+
+## Setup data
+
+### 1. Admin login
 
 ```powershell
-Invoke-Api -Path /actuator/health
-# HTTP 200
-# status : UP
+$ADMIN = (api POST /api/auth/login @{ email = "admin@tickets.local"; password = "Admin@12345" }).accessToken
 ```
 
-## 2. Log in as admin and create an event
+✅ **200**
+
+### 2. Create event
 
 ```powershell
-$ADMIN = (Invoke-Api -Method Post -Path /api/auth/login `
-    -Body @{ email = "admin@tickets.local"; password = "Admin@12345" }).accessToken
-$ADMIN    # should print a long eyJ... token
-
-$EVENT = (Invoke-Api -Method Post -Path /api/events -Token $ADMIN -Body @{
-    title      = "Rock Night"
-    venue      = "City Arena"
-    startsAt   = "2030-06-01T19:00:00Z"
-    price      = 20.00
-    totalSeats = 5
+$EVENT = (api POST /api/events -Token $ADMIN -Body @{
+    title       = "Khmer New Year Concert"
+    description = "Live Khmer music and Apsara dance, 7 PM Phnom Penh time"
+    venue       = "Koh Pich Theatre, Phnom Penh"
+    startsAt    = "2030-04-14T12:00:00Z"
+    price       = 20.00
+    totalSeats  = 5
 }).id
-"event id = $EVENT"
-
-Invoke-Api -Path /api/events | Format-Table id, title, price, availableSeats, status
 ```
 
-## 3. Create two customers
+✅ **201**
 
-Register, then log in. On the first run, `register` returns **201**. If the user already exists from an earlier run, it returns **409**, which you can ignore, because the login that follows works either way.
+### 3. Register Dara
 
 ```powershell
-Invoke-Api -Method Post -Path /api/auth/register `
-    -Body @{ email = "alice@example.com"; password = "Password123"; fullName = "Alice" } | Out-Null
-$ALICE = (Invoke-Api -Method Post -Path /api/auth/login `
-    -Body @{ email = "alice@example.com"; password = "Password123" }).accessToken
-
-Invoke-Api -Method Post -Path /api/auth/register `
-    -Body @{ email = "bob@example.com"; password = "Password123"; fullName = "Bob" } | Out-Null
-$BOB = (Invoke-Api -Method Post -Path /api/auth/login `
-    -Body @{ email = "bob@example.com"; password = "Password123" }).accessToken
-
-Invoke-Api -Path /api/auth/me -Token $ALICE
+api POST /api/auth/register @{ email = "dara@example.com"; password = "Password123"; fullName = "Sok Dara" }
 ```
 
-## 4. Test the six business rules
+✅ **201**. If Dara already exists, you get **409**. Continue to the login step.
 
-See [business-rules.md](business-rules.md) for how each rule is implemented.
-
-### Rule 03: max 4 tickets → 400
+### 4. Login Dara
 
 ```powershell
-$r = Invoke-Api -Method Post -Path /api/bookings -Token $ALICE -Body @{ eventId = $EVENT; quantity = 5 }
-$r.errors
-# HTTP 400
-# quantity : must be between 1 and 4
+$DARA = (api POST /api/auth/login @{ email = "dara@example.com"; password = "Password123" }).accessToken
 ```
 
-### Rule 04: price comes from the server
+✅ **200**
 
-The fake `totalPrice` in the request is ignored:
+### 5. Register Sokha
 
 ```powershell
-$booking = Invoke-Api -Method Post -Path /api/bookings -Token $ALICE `
-    -Body @{ eventId = $EVENT; quantity = 3; totalPrice = 0.01 }
-$booking | Format-List id, quantity, unitPrice, totalPrice, status
-$BOOKING = $booking.id
-# HTTP 201
-# totalPrice : 60.00      (3 × 20.00, not 0.01; PowerShell 7 displays it as 60)
+api POST /api/auth/register @{ email = "sokha@example.com"; password = "Password123"; fullName = "Chan Sokha" }
 ```
 
-### Rule 02: booking reduces seats
+✅ **201**. If Sokha already exists, you get **409**.
+
+### 6. Login Sokha
 
 ```powershell
-(Invoke-Api -Path /api/events/$EVENT).availableSeats
-# HTTP 200
-# 2
+$SOKHA = (api POST /api/auth/login @{ email = "sokha@example.com"; password = "Password123" }).accessToken
 ```
 
-### Rule 01: no overbooking → 409
+✅ **200**
+
+---
+
+## Business rules
+
+### 7. Rule 03: more than 4 tickets is rejected
 
 ```powershell
-(Invoke-Api -Method Post -Path /api/bookings -Token $BOB -Body @{ eventId = $EVENT; quantity = 3 }).detail
-# HTTP 409
-# Only 2 seat(s) left for event 1, requested 3
+api POST /api/bookings @{ eventId = $EVENT; quantity = 5 } -Token $DARA
 ```
 
-### Rule 06: only your own bookings → 403
+✅ **400**, `errors.quantity: "must be between 1 and 4"`
+
+### 8. Rule 04: price comes from the server
 
 ```powershell
-Invoke-Api -Path /api/bookings/$BOOKING -Token $BOB                   # HTTP 403
-Invoke-Api -Method Post -Path /api/bookings/$BOOKING/cancel -Token $BOB   # HTTP 403
-Invoke-Api -Path /api/bookings -Token $BOB                            # HTTP 200 (Bob's list doesn't include Alice's booking)
-Invoke-Api -Path /api/bookings/$BOOKING -Token $ALICE                 # HTTP 200
+$BOOKING = (api POST /api/bookings @{ eventId = $EVENT; quantity = 3; totalPrice = 0.01 } -Token $DARA).id
+api GET /api/bookings/$BOOKING -Token $DARA
 ```
 
-### Rule 02: cancelling gives seats back, and a second cancel → 409
+✅ **201**, then **200** with `totalPrice: 60` (3 × 20.00, the fake price is ignored)
+
+### 9. Rule 02: booking reduces seats
 
 ```powershell
-(Invoke-Api -Method Post -Path /api/bookings/$BOOKING/cancel -Token $ALICE).status   # HTTP 200  CANCELLED
-(Invoke-Api -Path /api/events/$EVENT).availableSeats                                 # HTTP 200  5
-(Invoke-Api -Method Post -Path /api/bookings/$BOOKING/cancel -Token $ALICE).detail   # HTTP 409  Booking ... is already cancelled
+api GET /api/events/$EVENT
 ```
 
-### Rule 05: booking a cancelled event → 409
+✅ **200**, `availableSeats: 2`
+
+### 10. Rule 01: overbooking is rejected
 
 ```powershell
-(Invoke-Api -Method Post -Path /api/events/$EVENT/cancel -Token $ADMIN).status       # HTTP 200  CANCELLED
-(Invoke-Api -Method Post -Path /api/bookings -Token $BOB -Body @{ eventId = $EVENT; quantity = 1 }).detail
-# HTTP 409
-# Event 1 is cancelled
+api POST /api/bookings @{ eventId = $EVENT; quantity = 3 } -Token $SOKHA
 ```
 
-## 5. Login and permission checks
+✅ **409**, `detail: "Only 2 seat(s) left for event …, requested 3"`
+
+### 11. Rule 06: Sokha can't view Dara's booking
 
 ```powershell
-# no token → 401
-Invoke-Api -Path /api/bookings
+api GET /api/bookings/$BOOKING -Token $SOKHA
+```
 
-# wrong password → 401
-Invoke-Api -Method Post -Path /api/auth/login -Body @{ email = "alice@example.com"; password = "nope" }
+✅ **403**
 
-# a customer trying to create an event → 403
-Invoke-Api -Method Post -Path /api/events -Token $ALICE -Body @{
-    title = "X"; venue = "Y"; startsAt = "2030-01-01T00:00:00Z"; price = 1; totalSeats = 1
+### 12. Rule 06: Sokha can't cancel Dara's booking
+
+```powershell
+api POST /api/bookings/$BOOKING/cancel -Token $SOKHA
+```
+
+✅ **403**
+
+### 13. Rule 06: Sokha's list doesn't include Dara's booking
+
+```powershell
+api GET /api/bookings -Token $SOKHA
+```
+
+✅ **200**. `$BOOKING` is not in the list.
+
+### 14. Rule 02: cancelling gives seats back
+
+```powershell
+api POST /api/bookings/$BOOKING/cancel -Token $DARA
+api GET /api/events/$EVENT
+```
+
+✅ **200**, `status: CANCELLED`, then **200**, `availableSeats: 5`
+
+### 15. Rule 02: cancelling twice is rejected
+
+```powershell
+api POST /api/bookings/$BOOKING/cancel -Token $DARA
+```
+
+✅ **409**, `detail: "Booking … is already cancelled"`
+
+### 16. Rule 05: booking a cancelled event is rejected
+
+```powershell
+api POST /api/events/$EVENT/cancel -Token $ADMIN
+api POST /api/bookings @{ eventId = $EVENT; quantity = 1 } -Token $SOKHA
+```
+
+✅ **200**, `status: CANCELLED`, then **409**, `detail: "Event … is cancelled"`
+
+---
+
+## Security
+
+### 17. No token
+
+```powershell
+api GET /api/bookings
+```
+
+✅ **401**
+
+### 18. Wrong password
+
+```powershell
+api POST /api/auth/login @{ email = "dara@example.com"; password = "wrong-password" }
+```
+
+✅ **401**, `detail: "Invalid email or password"`
+
+### 19. Customer can't create events
+
+```powershell
+api POST /api/events -Token $DARA -Body @{
+    title      = "Angkor Wat Sunrise Tour"
+    venue      = "Angkor Wat, Siem Reap"
+    startsAt   = "2030-01-01T23:00:00Z"
+    price      = 10.00
+    totalSeats = 10
 }
 ```
 
-401 and 403 responses from the security layer have an empty body, so only the `HTTP` line is printed.
+✅ **403**
 
-## Expected results
+### 20. Duplicate registration
 
-| Step | Request | Expected |
-|---|---|---|
-| Rule 03 | book 5 tickets | 400 |
-| Rule 04 | book 3 with `totalPrice = 0.01` | 201, `totalPrice` 60.00 |
-| Rule 02 | get event | `availableSeats` 2 |
-| Rule 01 | Bob books 3 | 409 |
-| Rule 06 | Bob views or cancels Alice's booking | 403 |
-| Rule 02 | Alice cancels | 200, `availableSeats` back to 5 |
-| Rule 02 | Alice cancels again | 409 |
-| Rule 05 | book a cancelled event | 409 |
-| Auth | no token / wrong password | 401 |
-| Auth | customer creates an event | 403 |
+```powershell
+api POST /api/auth/register @{ email = "dara@example.com"; password = "Password123"; fullName = "Sok Dara" }
+```
 
-> Your event and booking IDs will differ from the examples if you've run the guide before. Every run creates a new event.
+✅ **409**, `detail: "Email is already registered"`
 
-## Tips
+---
 
-- **See the full JSON** of any response: `Invoke-Api -Path /api/events/$EVENT | ConvertTo-Json`
-- **Tokens expire after 1 hour.** If you start getting 401s, run the login commands from steps 2 and 3 again.
-- **Don't use `curl` in Windows PowerShell 5.1.** There, `curl` is an alias for `Invoke-WebRequest`, which takes different options. Use `Invoke-Api` from step 1, or call `curl.exe` explicitly.
-- **To start again from an empty database**, stop the app, then run:
-  ```powershell
-  $env:PGPASSWORD = "postgres"
-  psql -h localhost -U postgres -c "DROP DATABASE event_tickets;" -c "CREATE DATABASE event_tickets;"
-  ```
-  Then start the app again.
-- **To run all of these checks automatically**, use `.\mvnw.cmd verify` (see [development.md](development.md#4-tests)).
-- **For an IDE-based alternative**, see [`api.http`](../api.http).
+## Notes
+
+- Tokens expire after 1 hour. If you start getting 401s, repeat the login steps.
+- Steps 2–16 need a new event each time you run the plan. Repeat step 2.
+- 401 and 403 responses from the security layer have an empty body, so only the `HTTP` line is printed.
+- To see a full response as JSON, add `| ConvertTo-Json`.
+- To start from an empty database: `docker compose down -v`, then `docker compose up -d --build`.
+- The full API reference is in [api.md](api.md).

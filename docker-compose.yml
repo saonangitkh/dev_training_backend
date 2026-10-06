@@ -7,10 +7,29 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: event_tickets
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql
       - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # Builds and runs the API in Docker (no local JDK needed): docker compose up -d --build
+  app:
+    build: .
+    container_name: event-tickets-app
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/event_tickets
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+    ports:
+      - "8090:8090"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:

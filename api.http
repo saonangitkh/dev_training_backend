@@ -1,5 +1,5 @@
 ### Sample requests (IntelliJ HTTP Client / VS Code REST Client)
-@baseUrl = http://localhost:8080
+@baseUrl = http://localhost:8090
 
 ### Login as the bootstrap admin -> copy accessToken into @adminToken
 POST {{baseUrl}}/api/auth/login
