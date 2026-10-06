@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Creates the configured admin account on startup so events can be managed.
+ * Creates the configured admin account on startup so movies, halls and showtimes can be managed.
  */
 @Component
 public class AdminAccountInitializer implements ApplicationRunner {

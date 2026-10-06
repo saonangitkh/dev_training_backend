@@ -25,6 +25,9 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/event_tickets
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
+      # Optional overrides, e.g. BOOKING_HOLD_DURATION=1m docker compose up -d
+      BOOKING_HOLD_DURATION: ${BOOKING_HOLD_DURATION:-10m}
+      BOOKING_CANCEL_CUTOFF: ${BOOKING_CANCEL_CUTOFF:-2h}
     ports:
       - "8090:8090"
     depends_on:

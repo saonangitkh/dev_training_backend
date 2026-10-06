@@ -1,6 +1,6 @@
 spring:
   application:
-    name: event-tickets
+    name: cinema-tickets
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5434/event_tickets}
     username: ${DB_USERNAME:postgres}
@@ -32,6 +32,22 @@ app:
     secret: ${JWT_SECRET:dev-only-secret-change-me-please-0123456789abcdef}
     expiration: ${JWT_EXPIRATION:1h}
     issuer: event-tickets
+  booking:
+    # Total seats one customer can hold or own for one showtime, across all their bookings.
+    max-tickets-per-customer: ${BOOKING_MAX_TICKETS_PER_CUSTOMER:8}
+    # Customers can't cancel a paid booking once the showtime starts within this time. Admins can always cancel.
+    cancel-cutoff: ${BOOKING_CANCEL_CUTOFF:2h}
+    # A new booking holds its seats this long. Unpaid holds expire and the seats are freed.
+    hold-duration: ${BOOKING_HOLD_DURATION:10m}
+    # Reject seat choices that leave one empty seat between two taken seats.
+    prevent-single-seat-gaps: ${BOOKING_PREVENT_SINGLE_SEAT_GAPS:true}
+    # How often expired holds are swept (ISO-8601 duration).
+    expiry-sweep-interval: ${BOOKING_EXPIRY_SWEEP_INTERVAL:PT1M}
+  cinema:
+    time-zone: ${CINEMA_TIME_ZONE:Asia/Phnom_Penh}
+    # Hall is blocked for this long after each movie ends.
+    cleaning-time: ${CINEMA_CLEANING_TIME:15m}
+    check-in-opens-before: ${CINEMA_CHECK_IN_OPENS_BEFORE:1h}
   admin:
     # Bootstrap admin account created on startup if it does not exist.
     email: ${ADMIN_EMAIL:admin@tickets.local}

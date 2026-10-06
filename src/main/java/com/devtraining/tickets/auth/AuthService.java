@@ -12,6 +12,7 @@ import com.devtraining.tickets.user.User;
 import com.devtraining.tickets.user.UserRepository;
 import com.devtraining.tickets.user.UserResponse;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -41,8 +42,15 @@ public class AuthService {
 		if (userRepository.existsByEmailIgnoreCase(email)) {
 			throw new ConflictException("Email is already registered");
 		}
-		User user = userRepository.save(new User(email, passwordEncoder.encode(request.password()),
-				request.fullName().trim(), Role.CUSTOMER));
+		User user;
+		try {
+			// Flush now so a concurrent registration with the same email hits the unique index here.
+			user = userRepository.saveAndFlush(new User(email, passwordEncoder.encode(request.password()),
+					request.fullName().trim(), Role.CUSTOMER, request.dateOfBirth()));
+		}
+		catch (DataIntegrityViolationException ex) {
+			throw new ConflictException("Email is already registered");
+		}
 		return toAuthResponse(user);
 	}
 

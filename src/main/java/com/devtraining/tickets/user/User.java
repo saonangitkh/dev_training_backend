@@ -1,6 +1,7 @@
 package com.devtraining.tickets.user;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -33,6 +34,9 @@ public class User {
 	@Column(nullable = false, length = 20)
 	private Role role;
 
+	@Column(name = "date_of_birth")
+	private LocalDate dateOfBirth;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
@@ -41,10 +45,15 @@ public class User {
 	}
 
 	public User(String email, String passwordHash, String fullName, Role role) {
+		this(email, passwordHash, fullName, role, null);
+	}
+
+	public User(String email, String passwordHash, String fullName, Role role, LocalDate dateOfBirth) {
 		this.email = email;
 		this.passwordHash = passwordHash;
 		this.fullName = fullName;
 		this.role = role;
+		this.dateOfBirth = dateOfBirth;
 	}
 
 	@PrePersist
@@ -74,6 +83,10 @@ public class User {
 
 	public Role getRole() {
 		return role;
+	}
+
+	public LocalDate getDateOfBirth() {
+		return dateOfBirth;
 	}
 
 	public Instant getCreatedAt() {

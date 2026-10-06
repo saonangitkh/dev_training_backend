@@ -1,4 +1,5 @@
 ### Sample requests (IntelliJ HTTP Client / VS Code REST Client)
+### Full cinema flow. Run the requests from top to bottom; ids assume an empty database.
 @baseUrl = http://localhost:8090
 
 ### Login as the bootstrap admin -> copy accessToken into @adminToken
@@ -10,32 +11,67 @@ Content-Type: application/json
 ###
 @adminToken = paste-admin-token-here
 
-### Admin: create an event
-POST {{baseUrl}}/api/events
+### Admin: create a movie
+POST {{baseUrl}}/api/movies
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 {
-  "title": "Rock Night",
-  "description": "Live bands all night",
-  "venue": "City Arena",
-  "startsAt": "2030-06-01T19:00:00Z",
-  "price": 25.00,
-  "totalSeats": 100
+  "title": "Angkor Legends",
+  "description": "An adventure among the temples of Angkor",
+  "durationMinutes": 120,
+  "ageRating": "G"
 }
 
-### Admin: cancel an event
-POST {{baseUrl}}/api/events/1/cancel
+### Admin: create an R18 movie
+POST {{baseUrl}}/api/movies
 Authorization: Bearer {{adminToken}}
+Content-Type: application/json
 
-### Public: list events
-GET {{baseUrl}}/api/events
+{"title": "Night in Phnom Penh", "durationMinutes": 105, "ageRating": "R18"}
 
-### Register a customer -> copy accessToken into @token
+### Public: list movies
+GET {{baseUrl}}/api/movies
+
+### Admin: create a hall (rows A-E STANDARD, F VIP, G COUPLE = 50 seats)
+POST {{baseUrl}}/api/halls
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Koh Pich Hall",
+  "rows": [
+    {"row": "A", "seats": 8, "type": "STANDARD"},
+    {"row": "B", "seats": 8, "type": "STANDARD"},
+    {"row": "C", "seats": 8, "type": "STANDARD"},
+    {"row": "D", "seats": 8, "type": "STANDARD"},
+    {"row": "E", "seats": 8, "type": "STANDARD"},
+    {"row": "F", "seats": 6, "type": "VIP"},
+    {"row": "G", "seats": 4, "type": "COUPLE"}
+  ]
+}
+
+### Public: one hall with its seats
+GET {{baseUrl}}/api/halls/1
+
+### Admin: schedule a showtime (7 PM Phnom Penh time; VIP = 1.5 x, COUPLE = 2 x basePrice)
+POST {{baseUrl}}/api/showtimes
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"movieId": 1, "hallId": 1, "startsAt": "2030-04-14T12:00:00Z", "basePrice": 4.00}
+
+### Public: upcoming showtimes (optionally for one movie)
+GET {{baseUrl}}/api/showtimes?movieId=1
+
+### Public: seat map with prices and availability
+GET {{baseUrl}}/api/showtimes/1/seats
+
+### Register a customer (dateOfBirth is optional, but needed for PG13 / R18 movies) -> copy accessToken into @token
 POST {{baseUrl}}/api/auth/register
 Content-Type: application/json
 
-{"email": "alice@example.com", "password": "Password123", "fullName": "Alice"}
+{"email": "dara@example.com", "password": "Password123", "fullName": "Sok Dara", "dateOfBirth": "1998-03-21"}
 
 ###
 @token = paste-customer-token-here
@@ -44,12 +80,20 @@ Content-Type: application/json
 GET {{baseUrl}}/api/auth/me
 Authorization: Bearer {{token}}
 
-### Book tickets (any client-side price is ignored)
+### Hold seats for 10 minutes (any client-side price is ignored; retrying with the same Idempotency-Key returns the same booking)
 POST {{baseUrl}}/api/bookings
 Authorization: Bearer {{token}}
 Content-Type: application/json
+Idempotency-Key: dara-a3-a4-f1
 
-{"eventId": 1, "quantity": 2}
+{"showtimeId": 1, "seats": ["A3", "A4", "F1"]}
+
+### Pay for the held seats -> copy ticketCode into @ticketCode
+POST {{baseUrl}}/api/bookings/1/pay
+Authorization: Bearer {{token}}
+
+###
+@ticketCode = paste-ticket-code-here
 
 ### My bookings
 GET {{baseUrl}}/api/bookings
@@ -59,6 +103,21 @@ Authorization: Bearer {{token}}
 GET {{baseUrl}}/api/bookings/1
 Authorization: Bearer {{token}}
 
-### Cancel a booking
+### Admin: check the ticket in at the door (opens 1 hour before the start)
+POST {{baseUrl}}/api/tickets/{{ticketCode}}/check-in
+Authorization: Bearer {{adminToken}}
+
+### Cancel a booking (customers can't cancel a paid booking within 2 hours of the start)
 POST {{baseUrl}}/api/bookings/1/cancel
 Authorization: Bearer {{token}}
+
+### Admin: change the price of a showtime (movie, hall and start time are fixed once seats are sold)
+PUT {{baseUrl}}/api/showtimes/1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"movieId": 1, "hallId": 1, "startsAt": "2030-04-14T12:00:00Z", "basePrice": 4.50}
+
+### Admin: cancel a showtime (also cancels all its held and paid bookings)
+POST {{baseUrl}}/api/showtimes/1/cancel
+Authorization: Bearer {{adminToken}}

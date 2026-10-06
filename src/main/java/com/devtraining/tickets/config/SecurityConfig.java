@@ -36,8 +36,9 @@ public class SecurityConfig {
 			.authorizeHttpRequests((auth) -> auth
 				.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
 				.requestMatchers("/actuator/health/**", "/error").permitAll()
-				.requestMatchers(HttpMethod.GET, "/api/events", "/api/events/*").permitAll()
-				.requestMatchers("/api/events/**").hasRole("ADMIN")
+				.requestMatchers(HttpMethod.GET, "/api/movies/**", "/api/halls/**", "/api/showtimes/**").permitAll()
+				.requestMatchers("/api/movies/**", "/api/halls/**", "/api/showtimes/**", "/api/tickets/**")
+				.hasRole("ADMIN")
 				.anyRequest().authenticated())
 			.oauth2ResourceServer((oauth2) -> oauth2
 				.jwt((jwt) -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
