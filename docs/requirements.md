@@ -1,6 +1,6 @@
 # Requirements
 
-This document specifies what the Event Tickets API must do. The source is the homework brief *"Homework · Event Tickets API: Business rules to implement"* ([`photo_2026-10-05_20-15-12.jpg`](photo_2026-10-05_20-15-12.jpg)). Where the brief is silent, the decisions made are listed under [Assumptions](#5-assumptions-and-decisions).
+This document specifies what the Event Tickets API must do. The source is the homework brief *"Homework · Event Tickets API: Business rules to implement"* ([`01-backend-api-business-rules.jpg`](homework/01-backend-api-business-rules.jpg)). Where the brief is silent, the decisions made are listed under [Assumptions](#5-assumptions-and-decisions).
 
 ## 1. Overview
 
@@ -38,7 +38,7 @@ The Event Tickets API is a backend REST service where:
 |---|---|---|
 | **Visitor** (not logged in) | — | View events; register; log in |
 | **Customer** | Self-registers through `POST /api/auth/register` | Everything a visitor can do, plus book tickets and view or cancel **their own** bookings |
-| **Admin** | Created on startup from `app.admin.*` configuration | Everything a customer can do, plus create, update and cancel events and view or cancel **any** booking |
+| **Admin** | Created on startup from `app.admin.*` configuration | View events; create, update and cancel events; view or cancel **any** booking. Admins run events, so they **can't book** tickets. |
 
 ## 3. Functional requirements
 
@@ -62,20 +62,21 @@ Each requirement has an ID so code reviews and tests can refer to it. **BR-xx** 
 |---|---|---|
 | EVT-01 | Anyone, including visitors, can list all events, ordered by start time. | — |
 | EVT-02 | Anyone can view a single event, including its `availableSeats` and `status`. | 404 |
-| EVT-03 | An admin can create an event with title, optional description, venue, start time, price (≥ 0) and total seats (≥ 1). It starts as `SCHEDULED`, with `availableSeats = totalSeats`. | 400; 401; 403 not an admin |
-| EVT-04 | An admin can update an event. Seats already booked are kept: `availableSeats = newTotal − booked`. | 400; 404; 409 if the new total is below the seats already booked |
-| EVT-05 | An admin can cancel an event, which sets its status to `CANCELLED`. | 404; 409 already cancelled |
+| EVT-03 | An admin can create an event with title, optional description, venue, start time **in the future**, price (≥ 0) and total seats (≥ 1). It starts as `SCHEDULED`, with `availableSeats = totalSeats`. | 400 (incl. a start time in the past); 401; 403 not an admin |
+| EVT-04 | An admin can update a scheduled event that hasn't started. Seats already booked are kept: `availableSeats = newTotal − booked`. | 400; 404; 409 if the new total is below the seats already booked, the event is cancelled, or it has started |
+| EVT-05 | An admin can cancel an event that hasn't started. Its status becomes `CANCELLED`, **all its confirmed bookings are cancelled too**, and their seats are given back. | 404; 409 already cancelled or already started |
 | EVT-06 | Only admins can create, update or cancel events. | 403 |
 
 ### 3.3 Bookings (BKG)
 
 | ID | Requirement | Error cases |
 |---|---|---|
-| BKG-01 | A logged-in user can book tickets by sending `eventId` and `quantity`. A successful booking is `CONFIRMED`. | 400; 401; 404 event not found; 409 (see BR-01, BR-05) |
-| BKG-02 | A customer can list their own bookings, newest first. An admin listing bookings sees everyone's. | 401 |
+| BKG-01 | A customer can book tickets by sending `eventId` and `quantity`. A successful booking is `CONFIRMED`. | 400; 401; 403 an admin; 404 event not found; 409 (see BR-01, BR-05, BKG-06) |
+| BKG-02 | A customer can list their own bookings, newest first. An admin listing bookings sees everyone's, with each customer's name and email. | 401 |
 | BKG-03 | A user can view one booking. | 403 (BR-06); 404 |
-| BKG-04 | A user can cancel a booking. It becomes `CANCELLED`, and the cancellation time is recorded. | 403 (BR-06); 404; 409 already cancelled |
+| BKG-04 | A user can cancel a booking until its event starts. It becomes `CANCELLED`, and the cancellation time is recorded. | 403 (BR-06); 404; 409 already cancelled or event already started |
 | BKG-05 | Each booking records the unit price at the time of booking. Later changes to the event price don't affect existing bookings. | — |
+| BKG-06 | Once an event has started it can't be booked, and its bookings can't be cancelled. | 409 |
 
 ### 3.4 Business rules (BR): from the brief
 
@@ -115,12 +116,13 @@ The brief doesn't cover these points. Here is what was decided:
 | # | Question | Decision | Easy to change? |
 |---|---|---|---|
 | A-1 | Is the 4-ticket limit per booking or per customer per event? | **Per booking**, as the brief says. A customer can make several bookings. | Yes: add a check in `BookingService.create` |
-| A-2 | What happens to existing bookings when an event is cancelled? | **Nothing automatic.** They stay `CONFIRMED`, and customers can still cancel them to get their seats back. | Yes: cancel them in `EventService.cancel` |
+| A-2 | What happens to existing bookings when an event is cancelled? | **They are cancelled with it** in the same transaction, and their seats are given back. Migration `V2` applied this to events cancelled earlier. | Yes: `EventService.cancel` |
 | A-3 | Can admins see or cancel other people's bookings? | **Yes.** BR-06 limits customers only. | Yes: `BookingService.checkAccess` |
+| A-3b | Can admins book tickets? | **No (403).** A booking under the admin's own account would belong to no customer. | Yes: `BookingService.create` |
 | A-4 | Booking that doesn't exist vs. belongs to someone else? | 404 if it doesn't exist; **403** if it belongs to someone else (as BR-06 states). | — |
 | A-5 | What if the client sends a price? | **Ignored silently**, not rejected (BR-04 says "never trust", not "reject"). | Yes: enable strict JSON parsing |
 | A-6 | Can someone register as an admin? | **No.** Registration always creates customers. The admin comes from configuration. | — |
-| A-7 | Can events in the past be booked? | **Yes.** Not restricted by the brief. | Yes: add a check in `Event.reserveSeats` |
+| A-7 | Can events in the past be booked? | **No.** Once an event starts it is locked: no booking, no cancelling a booking, no edit, no cancel (409). New events must start in the future (400). | Yes: `Event.requireNotStarted` |
 | A-8 | Second cancel of the same booking? | **409**, and seats are not returned twice (protects BR-02). | — |
 
 ## 6. Acceptance criteria
@@ -140,7 +142,8 @@ The project is accepted when:
 | Requirement | Main code | Tests |
 |---|---|---|
 | AUTH-01…07 | `auth/AuthService`, `config/SecurityConfig`, `config/AdminAccountInitializer` | `BookingApiIT.securityRules` |
-| EVT-01…06 | `event/EventService`, `event/Event`, `config/SecurityConfig` | `BookingApiIT.securityRules`, `fullBookingFlowFollowsBusinessRules` |
+| EVT-01…06 | `event/EventService`, `event/Event`, `config/SecurityConfig` | `EventServiceTest`, `BookingApiIT.securityRules`, `fullBookingFlowFollowsBusinessRules`, `adminAndEventLifecycleRules` |
+| BKG-01 (admin), BKG-06 | `BookingService.create` / `cancel`, `Event.requireNotStarted` | `BookingServiceTest.adminCannotBook`, `createRejectsStartedEventWithConflict`, `cancelAfterEventStartedIsConflictAndKeepsTheBooking` |
 | BR-01 | `Event.reserveSeats`, `EventRepository.findByIdForUpdate` | `BookingServiceTest.createRejectsOverbookingWithConflict`, `BookingApiIT.concurrentBookingsNeverOversell` |
 | BR-02 | `BookingService.create` / `cancel`, `Event.releaseSeats`, `Booking.cancel` | `BookingServiceTest.cancelGivesSeatsBack`, `cancelTwiceIsConflictAndDoesNotReleaseSeatsAgain` |
 | BR-03 | `BookingRequest` (`@Min`/`@Max`) | `BookingApiIT.fullBookingFlowFollowsBusinessRules` |

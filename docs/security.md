@@ -53,7 +53,7 @@ Controllers read the token with `@AuthenticationPrincipal Jwt jwt` and convert i
 | Role | How it's created | Can do |
 |---|---|---|
 | `CUSTOMER` | `POST /api/auth/register` | view events; create, view and cancel **their own** bookings |
-| `ADMIN` | on startup from `app.admin.*` (`AdminAccountInitializer`) | everything a customer can do, plus create, update and cancel events and view or cancel **any** booking |
+| `ADMIN` | on startup from `app.admin.*` (`AdminAccountInitializer`) | view events; create, update and cancel events; view or cancel **any** booking. **Can't book** (403). |
 
 ## Authorization rules
 
@@ -70,6 +70,8 @@ These are checked in two places.
 | everything else | authenticated |
 
 **2. Ownership rule** (`BookingService.checkAccess`): a customer may only read or cancel a booking whose `user_id` equals their token's `sub`. Otherwise the response is 403. See [business rule 06](business-rules.md#06-only-your-own-bookings).
+
+**3. Customers only book** (`BookingService.create`): an admin creating a booking gets 403 with the message "Admins can't book tickets". Admins run events, and a booking under the admin's own account would belong to no customer.
 
 ## Production checklist
 

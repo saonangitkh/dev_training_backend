@@ -69,7 +69,7 @@ Check that it's up:
 Invoke-RestMethod http://localhost:8090/actuator/health      # status: UP
 ```
 
-Then follow [testing-with-powershell.md](testing-with-powershell.md), [testing-with-curl.md](testing-with-curl.md) (macOS / Linux) or [testing-with-postman.md](testing-with-postman.md), or try the requests in [`api.http`](../api.http).
+Then follow [testing-with-powershell.md](testing-with-powershell.md), [testing-with-curl.md](testing-with-curl.md) (macOS / Linux) or [testing-with-postman.md](testing-with-postman.md), or try the requests in [`api.http`](../backend/api.http).
 
 Build a runnable jar:
 

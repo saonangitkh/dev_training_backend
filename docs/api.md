@@ -8,7 +8,7 @@ Authenticated endpoints need this header:
 Authorization: Bearer <accessToken>
 ```
 
-Runnable examples for every endpoint are in [`../api.http`](../api.http).
+Runnable examples for every endpoint are in [`../api.http`](../backend/api.http).
 
 ## Endpoint summary
 
@@ -22,7 +22,7 @@ Runnable examples for every endpoint are in [`../api.http`](../api.http).
 | POST | `/api/events` | ADMIN | 201 |
 | PUT | `/api/events/{id}` | ADMIN | 200 |
 | POST | `/api/events/{id}/cancel` | ADMIN | 200 |
-| POST | `/api/bookings` | Authenticated | 201 |
+| POST | `/api/bookings` | CUSTOMER (admins get 403) | 201 |
 | GET | `/api/bookings` | Authenticated | 200 |
 | GET | `/api/bookings/{id}` | Owner or ADMIN | 200 |
 | POST | `/api/bookings/{id}/cancel` | Owner or ADMIN | 200 |
@@ -130,7 +130,7 @@ Request:
 | `title` | required, ≤ 200 chars |
 | `description` | optional, ≤ 5000 chars |
 | `venue` | required, ≤ 200 chars |
-| `startsAt` | required, ISO-8601 instant |
+| `startsAt` | required, ISO-8601 instant, in the future |
 | `price` | required, ≥ 0, max 8 integer digits and 2 decimals |
 | `totalSeats` | required, ≥ 1 |
 
@@ -141,12 +141,12 @@ Response `201` with a `Location: /api/events/{id}` header. Errors: `400`, `401`,
 
 Same body as create; replaces all fields. Booked seats are preserved:
 `availableSeats = newTotalSeats − alreadyBookedSeats`.
-Errors: `400`, `404`, `409` if `totalSeats` would drop below the number of seats already booked.
+Errors: `400`, `404`, `409` if `totalSeats` would drop below the number of seats already booked, the event is cancelled, or it has already started.
 
 ### `POST /api/events/{id}/cancel` (ADMIN)
 
-Sets `status` to `CANCELLED`. New bookings are then rejected with 409. Existing bookings are left unchanged.
-Errors: `404`, `409` if the event is already cancelled.
+Sets `status` to `CANCELLED`. New bookings are then rejected with 409. Every `CONFIRMED` booking for the event is cancelled in the same transaction, and its seats are given back.
+Errors: `404`, `409` if the event is already cancelled or has already started.
 
 ---
 
@@ -159,7 +159,10 @@ Errors: `404`, `409` if the event is already cancelled.
   "id": 7,
   "eventId": 1,
   "eventTitle": "Rock Night",
+  "eventStartsAt": "2030-06-01T19:00:00Z",
   "userId": 2,
+  "userEmail": "alice@example.com",
+  "userFullName": "Alice Customer",
   "quantity": 2,
   "unitPrice": 25.00,
   "totalPrice": 50.00,
@@ -169,7 +172,7 @@ Errors: `404`, `409` if the event is already cancelled.
 }
 ```
 
-`status` is `CONFIRMED` or `CANCELLED`.
+`status` is `CONFIRMED` or `CANCELLED`. `userEmail` and `userFullName` say who made the booking, so an admin's list of all bookings shows whose each one is.
 
 ### `POST /api/bookings`
 
@@ -190,8 +193,9 @@ Response `201` with a `Location: /api/bookings/{id}` header.
 |---|---|
 | 400 | `quantity` missing or outside 1–4 |
 | 401 | no/invalid token |
+| 403 | the caller is an admin (admins run events and can't book) |
 | 404 | event doesn't exist |
-| 409 | event is cancelled, **or** not enough seats left |
+| 409 | event is cancelled, has already started, **or** not enough seats left |
 
 ### `GET /api/bookings`
 
@@ -210,7 +214,7 @@ Marks the booking `CANCELLED`, sets `cancelledAt`, and returns the seats to the 
 |---|---|
 | 403 | booking belongs to another customer |
 | 404 | booking doesn't exist |
-| 409 | booking is already cancelled |
+| 409 | booking is already cancelled, or its event has already started |
 
 ---
 

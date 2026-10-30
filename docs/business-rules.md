@@ -43,7 +43,7 @@ availableSeats -= quantity;
 **Edge cases handled:**
 - **Double cancel.** `Booking.cancel()` throws `ConflictException` (409) if the booking is already `CANCELLED`, so seats are never returned twice. The booking row is also locked (`BookingRepository.findByIdForUpdate`), so two concurrent cancel requests cannot both pass the check.
 - **Admin edits the seat count.** `Event.update()` keeps the number of booked seats constant and recomputes `availableSeats`. Reducing `totalSeats` below the number already booked returns 409.
-- **Lock ordering.** `create` locks only the event row. `cancel` locks the booking row, then the event row. There is no lock cycle, so these two operations cannot deadlock.
+- **Lock ordering.** Every operation locks the event row first. `create` locks only the event row. Cancelling a booking locks its event (`EventRepository.findByBookingIdForUpdate`), then the booking row. Cancelling an event locks the event, then its bookings. Because the order is always event → booking, these operations cannot deadlock.
 
 **Tested by:** `BookingServiceTest.cancelGivesSeatsBack`, `cancelTwiceIsConflictAndDoesNotReleaseSeatsAgain`, and `BookingApiIT.fullBookingFlowFollowsBusinessRules`.
 
@@ -103,9 +103,9 @@ if (isCancelled()) {
 
 Events are cancelled by an admin through `POST /api/events/{id}/cancel`. Cancelling an already cancelled event returns 409.
 
-> **Current behaviour:** Existing bookings for a cancelled event are **not** cancelled automatically. Customers can still cancel them, and their seats are returned. If you need automatic cancellation or refunds, add it to `EventService.cancel`.
+Cancelling an event also cancels every `CONFIRMED` booking for it in the same transaction (`EventService.cancel`), and gives their seats back, so no customer is left holding a "confirmed" ticket for an event that won't happen. Migration `V2__cancel_bookings_of_cancelled_events.sql` applied the same to events cancelled before this rule.
 
-**Tested by:** `BookingServiceTest.createRejectsCancelledEventWithConflict` and `BookingApiIT.fullBookingFlowFollowsBusinessRules`.
+**Tested by:** `BookingServiceTest.createRejectsCancelledEventWithConflict`, `EventServiceTest.cancelEventCancelsItsBookingsAndGivesSeatsBack`, `BookingApiIT.fullBookingFlowFollowsBusinessRules` and `adminAndEventLifecycleRules`.
 
 ## 06: Only your own bookings
 
@@ -128,11 +128,29 @@ if (!currentUser.isAdmin() && !booking.isOwnedBy(currentUser.id())) {
 
 ---
 
+## Rules beyond the brief
+
+These came out of an audit of every operation per role.
+
+| Rule | Response | Enforced in |
+|---|---|---|
+| Admins can't book; they run events | 403 | `BookingService.create` |
+| A new event must start in the future | 400 | `EventRequest` (`@Future`) |
+| Once an event has started: no booking, no cancelling a booking, no edit, no cancel | 409 | `Event.requireNotStarted`, called from `reserveSeats`, `update`, `cancel` and `BookingService.cancel` |
+| A cancelled event can't be edited | 409 | `Event.update` |
+| Cancelling an event cancels its bookings | n/a | `EventService.cancel` (see rule 05) |
+
+"Now" comes from a `Clock` bean (`config/ClockConfig`), so tests use a fixed time.
+
+**Tested by:** `BookingServiceTest.adminCannotBook`, `createRejectsStartedEventWithConflict`, `cancelAfterEventStartedIsConflictAndKeepsTheBooking`, `EventServiceTest` and `BookingApiIT.adminAndEventLifecycleRules`.
+
 ## Order of checks when creating a booking
 
 1. JWT valid? No → **401**
 2. Body valid, `eventId` present and `quantity` 1–4? No → **400** *(rule 03)*
-3. Event exists? No → **404** *(row is now locked)*
-4. Event cancelled? Yes → **409** *(rule 05)*
-5. Enough seats? No → **409** *(rule 01)*
-6. Decrement seats, save booking with the server-computed price → **201** *(rules 02, 04)*
+3. Caller is an admin? Yes → **403**
+4. Event exists? No → **404** *(row is now locked)*
+5. Event cancelled? Yes → **409** *(rule 05)*
+6. Event already started? Yes → **409**
+7. Enough seats? No → **409** *(rule 01)*
+8. Decrement seats, save booking with the server-computed price → **201** *(rules 02, 04)*
